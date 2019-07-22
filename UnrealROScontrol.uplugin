@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "UnrealROScontrol",
+	"Description": "Adds ROS control support without adding ROS dependencies.",
+	"Category": "Simulation",
+	"CreatedBy": "Markus Gögele",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": true,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"EnabledByDefault": true,
+	"Modules": [
+		{
+			"Name": "UnrealROScontrol",
+			"Type": "Developer",
+			"LoadingPhase": "Default"
+		}
+	]
+}
