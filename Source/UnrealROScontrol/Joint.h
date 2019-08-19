@@ -8,6 +8,15 @@
 #include "EngineUtils.h"
 #include "Joint.generated.h"
 
+
+UENUM(BlueprintType)		//"BlueprintType" is essential to include
+enum class EJointTypeEnum : uint8
+{
+	JTE_Velocity 	UMETA(DisplayName = "Velocity"),
+	JTE_Position	UMETA(DisplayName = "Position"),
+};
+
+
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class UNREALROSCONTROL_API UJoint : public USceneComponent
 {
@@ -57,11 +66,15 @@ public:
 	UPROPERTY(EditAnywhere, Category = Joint)
 	FString Label;
 
+	UPROPERTY(EditAnywhere, Category = Joint)
+	EJointTypeEnum JointType;
+
 	// Sets default values for this component's properties
 	UJoint();
 
 	virtual void BeginPlay() override;
 
+	void ExecuteCommand(double command);
 	float GetAngle();
 	void SetAngle(float value);
 	void SetAngularVelocity(float value);

@@ -46,6 +46,22 @@ void UJoint::BeginPlay()
 	}
 }
 
+void UJoint::ExecuteCommand(double command)
+{
+	switch (JointType)
+	{
+	case EJointTypeEnum::JTE_Position:
+		SetAngle(command);
+		break;
+	case EJointTypeEnum::JTE_Velocity:
+		SetAngularVelocity(command);
+		break;
+	default:
+		UE_LOG(LogTemp, Error, TEXT("Something went wrong with the JointType"));
+		break;
+	}
+}
+
 float UJoint::GetAngle()
 {
 	return ConstraintInstance.GetCurrentTwist();
