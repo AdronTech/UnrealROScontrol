@@ -47,6 +47,30 @@
 
 #endif
 
+
+class RecieveTask : public FNonAbandonableTask
+{
+private:
+	FSocket *Socket;
+	uint8_t buffer[1024];
+	TMap<FString, UJoint *> *Joints;
+
+	volatile bool bRun = true;
+public:
+	UPROPERTY()
+	RecieveTask(FSocket* Socket, TMap<FString, UJoint *> *Joints, volatile bool **bRun);
+
+	~RecieveTask();
+
+	// Required by UE4
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(RecieveTask, STATGROUP_ThreadPoolAsyncTasks)
+	}
+
+	void DoWork();
+};
+
 UCLASS()
 class UNREALROSCONTROL_API AJointManager : public AActor
 {
@@ -61,6 +85,8 @@ private:
 	uint64_t temp;
 
 	FTimerHandle TimerHandle;
+	FAutoDeleteAsyncTask<RecieveTask> *RecieveTaskHandle;
+	volatile bool *bRun;
 
 	UFUNCTION()
 		void SendUpdate();
@@ -85,3 +111,4 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 };
+

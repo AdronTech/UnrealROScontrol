@@ -16,10 +16,10 @@ void AJointManager::Subscribe(UJoint *joint)
 	Joints.Emplace(joint->Label, joint);
 	UE_LOG(LogTemp, Warning, TEXT("Joint subscribed %s"), *joint->Label);
 
-	for (auto& Elem : Joints)
-	{
-		UE_LOG(LogTemp, Error, TEXT("__ %s __\n"), *Elem.Key);
-	}
+	//for (auto& Elem : Joints)
+	//{
+	//	UE_LOG(LogTemp, Error, TEXT("__ %s __\n"), *Elem.Key);
+	//}
 }
 
 void AJointManager::Unsubscribe(UJoint *joint)
@@ -32,6 +32,8 @@ void AJointManager::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	Socket = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateSocket(NAME_Stream, TEXT("default"), false);
+
 	Connect();
 
 	UWorld* World = GetWorld();
@@ -39,12 +41,16 @@ void AJointManager::BeginPlay()
 	{
 		World->GetTimerManager().SetTimer(TimerHandle, this, &AJointManager::SendUpdate, 0.02f, true);
 	}
+
+	RecieveTaskHandle = new FAutoDeleteAsyncTask<RecieveTask>(Socket, &Joints, &bRun);
+	RecieveTaskHandle->StartBackgroundTask();
 }
 
 void AJointManager::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);
 	Disconnect();
+	*bRun = false;
 }
 
 // Called every frame
@@ -52,25 +58,10 @@ void AJointManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	uint32 size;
-	int32 bytesRead;
-	if (Socket->HasPendingData(size))
-	{
-		Socket->Recv(buffer, 8, bytesRead);
-
-		temp = ntohll(*(uint64_t *)buffer);
-
-		double value = *(double *)&temp;
-
-		Joints["joint1"]->SetAngle(value);
-		UE_LOG(LogTemp, Error, TEXT("%f"), value);
-	}
 }
 
 
 void AJointManager::Connect() {
-	Socket = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateSocket(NAME_Stream, TEXT("default"), false);
-
 	FIPv4Address ip(127, 0, 0, 1);
 
 	TSharedRef<FInternetAddr> addr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
@@ -90,35 +81,37 @@ void AJointManager::Disconnect() {
 
 void AJointManager::SendUpdate()
 {
-
-
-	double twist = Joints["joint1"]->GetAngle();
-
 	uint8_t *pointer = buffer;
 
-	*(uint16_t *)pointer = htons(1);
+	*(uint16_t *)pointer = htons(Joints.Num());
 	pointer += 2;
 
-	char * name = "joint1";
-	uint16_t length = strlen(name) + 1;
-	*(uint16_t *)pointer = htons(length);
-	pointer += 2;
+	for (auto& Elem : Joints)
+	{
+		UJoint *joint = Elem.Value;
 
-	strcpy_s((char *)pointer, 1024, name);
-	pointer += length;
+		double twist = joint->GetAngle();
 
-	temp = htonll(*(uint64_t *)&twist);
-	*(uint64_t *)pointer = temp;
-	pointer += 4;
+		char * name = TCHAR_TO_ANSI(*joint->Label);
+		uint16_t length = strlen(name) + 1;
+		*(uint16_t *)pointer = htons(length);
+		pointer += 2;
 
-	*(uint64_t *)pointer = temp;
-	pointer += 4;
+		strcpy_s((char *)pointer, 1024, name);
+		pointer += length;
 
-	*(uint64_t *)pointer = temp;
-	pointer += 4;
+		temp = htonll(*(uint64_t *)&twist);
+		*(uint64_t *)pointer = temp;
+		pointer += 8;
+
+		*(uint64_t *)pointer = temp;
+		pointer += 8;
+
+		*(uint64_t *)pointer = temp;
+		pointer += 8;
+	}
 
 	int32 sent;
-
 	bool status = Socket->Send(buffer, pointer - buffer, sent);
 	//if (!status) Disconnect();
 	//ESocketConnectionState state = Socket->GetConnectionState();
@@ -126,3 +119,54 @@ void AJointManager::SendUpdate()
 }
 
 
+RecieveTask::RecieveTask(FSocket *Socket, TMap<FString, UJoint *> *Joints,volatile bool **bRun)
+{
+	this->Socket = Socket;
+	this->Joints = Joints;
+	*bRun = &this->bRun;
+}
+
+RecieveTask::~RecieveTask()
+{
+}
+
+void RecieveTask::DoWork()
+{
+	int32 bytesRead;
+	uint64_t temp;
+
+	while (bRun)
+	{
+		// read number of joints		
+		Socket->Recv(buffer, 2, bytesRead, ESocketReceiveFlags::Type::WaitAll);
+		uint16_t nrJoints = ntohs(*(uint16_t *)buffer);
+
+		//UE_LOG(LogTemp, Error, TEXT("test1, %d, %d"), nrJoints, bytesRead);
+		for (int i = 0; i < nrJoints; i++)
+		{
+			//UE_LOG(LogTemp, Error, TEXT("test2"));
+			// read lenght  of label
+			Socket->Recv(buffer, 2, bytesRead, ESocketReceiveFlags::Type::WaitAll);
+			uint16_t labelLenght = ntohs(*(uint16_t *)buffer);
+
+			//UE_LOG(LogTemp, Error, TEXT("test3, %d, %d"), labelLenght, bytesRead);
+			// read label
+			Socket->Recv(buffer, labelLenght, bytesRead, ESocketReceiveFlags::Type::WaitAll);
+			FString label = FString(ANSI_TO_TCHAR((char *)buffer));
+
+			//UE_LOG(LogTemp, Error, TEXT("test4, %d"), bytesRead);
+			// read command
+			Socket->Recv(buffer, 8, bytesRead, ESocketReceiveFlags::Type::WaitAll);
+			temp = ntohll(*(uint64_t *)buffer);
+
+			//UE_LOG(LogTemp, Error, TEXT("test5, %d"), bytesRead);
+			double value = *(double *)&temp;
+			
+			//UE_LOG(LogTemp, Error, TEXT("test6, %d"), value);
+			if (!bRun) return;
+
+			(*Joints)[label]->ExecuteCommand(value);
+			UE_LOG(LogTemp, Error, TEXT("%f"), value);
+		}
+	}
+}
