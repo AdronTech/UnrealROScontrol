@@ -90,7 +90,9 @@ void AJointManager::SendUpdate()
 	{
 		UJoint *joint = Elem.Value;
 
-		double twist = joint->GetAngle();
+		double angle = joint->GetAngle();
+		double velocity = joint->GetAngularVelocity();
+		double effort = joint->GetEffort();
 
 		char * name = TCHAR_TO_ANSI(*joint->Label);
 		uint16_t length = strlen(name) + 1;
@@ -100,13 +102,15 @@ void AJointManager::SendUpdate()
 		strcpy_s((char *)pointer, 1024, name);
 		pointer += length;
 
-		temp = htonll(*(uint64_t *)&twist);
+		temp = htonll(*(uint64_t *)&angle);
 		*(uint64_t *)pointer = temp;
 		pointer += 8;
 
+		temp = htonll(*(uint64_t *)&velocity);
 		*(uint64_t *)pointer = temp;
 		pointer += 8;
 
+		temp = htonll(*(uint64_t *)&effort);
 		*(uint64_t *)pointer = temp;
 		pointer += 8;
 	}
@@ -164,9 +168,11 @@ void RecieveTask::DoWork()
 			
 			//UE_LOG(LogTemp, Error, TEXT("test6, %d"), value);
 			if (!bRun) return;
-
-			(*Joints)[label]->ExecuteCommand(value);
-			UE_LOG(LogTemp, Error, TEXT("%f"), value);
+			if ((*Joints).Contains(label))
+			{
+				(*Joints)[label]->ExecuteCommand(value);
+			}
+			//UE_LOG(LogTemp, Error, TEXT("%s: %f"), *label, value);
 		}
 	}
 }

@@ -61,6 +61,13 @@ class UNREALROSCONTROL_API UJoint : public USceneComponent
 	UPROPERTY(BlueprintAssignable)
 		FConstraintBrokenSignature OnConstraintBroken;
 
+	FTimerHandle TimerHandle;
+	double oldTime = 0;
+	float oldAngle = 0;
+	float velocity = 0;
+
+	UFUNCTION()
+		void CalcVelocity();
 
 public:	
 	UPROPERTY(EditAnywhere, Category = Joint)
@@ -77,7 +84,9 @@ public:
 	void ExecuteCommand(double command);
 	float GetAngle();
 	void SetAngle(float value);
+	float GetAngularVelocity();
 	void SetAngularVelocity(float value);
+	float GetEffort();
 
 
 	/** All constraint settings */

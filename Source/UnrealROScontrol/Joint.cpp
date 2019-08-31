@@ -14,6 +14,7 @@
 #include "PhysicsEngine/ConstraintUtils.h"
 #include "Components/BillboardComponent.h"
 #include "JointManager.h"
+#include "Kismet/GameplayStatics.h"
 
 #define LOCTEXT_NAMESPACE "Joint"
 
@@ -32,6 +33,9 @@ UJoint::UJoint()
 	ConstraintInstance.SetAngularVelocityDriveTwistAndSwing(true, false);
 	ConstraintInstance.SetAngularDriveParams(1000, 100, 0);
 	ConstraintInstance.SetDisableCollision(true);
+	ConstraintInstance.ProfileInstance.ProjectionAngularTolerance = 0.01;
+	ConstraintInstance.ProfileInstance.ProjectionLinearTolerance = 0.01;
+	//ConstraintInstance.ProfileInstance.bParentDominates = true;
 }
 
 void UJoint::BeginPlay() 
@@ -43,6 +47,12 @@ void UJoint::BeginPlay()
 		// Access the subclass instance with the * or -> operators.
 		AJointManager *JointManager = *Itr;
 		JointManager->Subscribe(this);
+	}
+
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		World->GetTimerManager().SetTimer(TimerHandle, this, &UJoint::CalcVelocity, 0.02f, true);
 	}
 }
 
@@ -75,10 +85,44 @@ void UJoint::SetAngle(float value)
 	ConstraintInstance.SetAngularOrientationTarget(pos);
 }
 
+
+void UJoint::CalcVelocity()
+{
+
+	float angle = GetAngle();
+	double time = FPlatformTime::Seconds();
+
+	float deltatime = time - oldTime;
+	
+	velocity = angle - oldAngle;
+
+	if (abs(velocity) > PI) 
+		velocity -= (signbit(velocity) ? -1 : 1) * 2 * PI;
+
+	velocity /= deltatime;
+
+	oldAngle = angle;
+	oldTime = time;
+}
+
+float UJoint::GetAngularVelocity()
+{
+	return velocity;
+}
+
 void UJoint::SetAngularVelocity(float value)
 {
 	ConstraintInstance.SetOrientationDriveTwistAndSwing(false, false);
 	ConstraintInstance.SetAngularVelocityTarget(FVector(value/(2 * PI), 0, 0));
+}
+
+float UJoint::GetEffort()
+{
+	FVector linear, angular;
+
+	ConstraintInstance.GetConstraintForce(linear, angular);
+	//UE_LOG(LogTemp, Error, TEXT("%s"), *angular.ToString());
+	return angular.X;
 }
 
 UPrimitiveComponent* UJoint::GetComponentInternal(EConstraintFrame::Type Frame) const
