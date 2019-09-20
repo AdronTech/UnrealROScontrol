@@ -65,6 +65,8 @@ class UNREALROSCONTROL_API UJoint : public USceneComponent
 	double oldTime = 0;
 	float oldAngle = 0;
 	float velocity = 0;
+	float oldPosition = 0;
+	float position = 0;
 
 	UFUNCTION()
 		void CalcVelocity();

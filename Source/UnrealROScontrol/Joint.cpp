@@ -54,6 +54,9 @@ void UJoint::BeginPlay()
 	{
 		World->GetTimerManager().SetTimer(TimerHandle, this, &UJoint::CalcVelocity, 0.02f, true);
 	}
+
+	oldAngle = GetAngle();
+	oldPosition = GetAngle();
 }
 
 void UJoint::ExecuteCommand(double command)
@@ -74,7 +77,7 @@ void UJoint::ExecuteCommand(double command)
 
 float UJoint::GetAngle()
 {
-	return ConstraintInstance.GetCurrentTwist();
+	return position;
 }
 
 void UJoint::SetAngle(float value)
@@ -89,7 +92,7 @@ void UJoint::SetAngle(float value)
 void UJoint::CalcVelocity()
 {
 
-	float angle = GetAngle();
+	float angle = ConstraintInstance.GetCurrentTwist();
 	double time = FPlatformTime::Seconds();
 
 	float deltatime = time - oldTime;
@@ -99,10 +102,13 @@ void UJoint::CalcVelocity()
 	if (abs(velocity) > PI) 
 		velocity -= (signbit(velocity) ? -1 : 1) * 2 * PI;
 
-	velocity /= deltatime;
+	position = oldPosition + velocity;
 
+	velocity /= deltatime;
+	
 	oldAngle = angle;
 	oldTime = time;
+	oldPosition = position;
 }
 
 float UJoint::GetAngularVelocity()
@@ -122,7 +128,7 @@ float UJoint::GetEffort()
 
 	ConstraintInstance.GetConstraintForce(linear, angular);
 	//UE_LOG(LogTemp, Error, TEXT("%s"), *angular.ToString());
-	return angular.X;
+	return angular.X / 100000; // because UE uses cm instead of m
 }
 
 UPrimitiveComponent* UJoint::GetComponentInternal(EConstraintFrame::Type Frame) const
